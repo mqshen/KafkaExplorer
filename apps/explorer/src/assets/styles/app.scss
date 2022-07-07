@@ -1,0 +1,21 @@
+@import './app/variables';
+@import './app/flex-grid';
+@import './app/base';
+
+
+body.theme-system { 
+	@media (prefers-color-scheme: dark) {
+	  @import './app/_all.scss';
+	  @import './themes/dark/theme.scss';
+	}
+      
+	@media (prefers-color-scheme: light) {
+	  @import './app/_all.scss';
+	  @import './themes/light/theme.scss';
+	} 
+}
+
+body.theme-dark { 
+	@import './app/_all.scss';
+	@import './themes/dark/theme.scss';
+}
