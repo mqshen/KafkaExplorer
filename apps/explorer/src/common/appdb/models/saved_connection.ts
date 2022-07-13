@@ -5,16 +5,7 @@ import { IDbClients } from "@/lib/db/client";
 import { ConnectionString } from "connection-string";
 import log from "electron-log";
 
-export const ConnectionTypes = [
-  { name: "MySQL", value: "mysql" },
-  { name: "MariaDB", value: "mariadb" },
-  { name: "Postgres", value: "postgresql" },
-  { name: "SQLite", value: "sqlite" },
-  { name: "SQL Server", value: "sqlserver" },
-  { name: "Amazon Redshift", value: "redshift" },
-  { name: "CockroachDB", value: "cockroachdb" },
-  { name: "Other (Oracle, etc)", value: "other" },
-];
+export const ConnectionTypes = [{ name: "ZooKeeper", value: "zookeeper" }];
 
 export interface ConnectionOptions {
   cluster?: string;
@@ -49,9 +40,9 @@ export class DbConnectionBase extends ApplicationEntity {
   }
 
   @Column({ type: "varchar", nullable: true })
-  host: string = "localhost";
+  host: string = "192.168.65.104";
 
-  _port: Nullable<number> = null;
+  _port: Nullable<number> = 2181;
 
   @Column({ type: "int", nullable: true })
   public set port(v: Nullable<number>) {
@@ -165,6 +156,9 @@ export class SavedConnection extends DbConnectionBase {
   @Column({ type: "boolean", default: true })
   rememberPassword: boolean = true;
 
+  @Column({ type: "varchar", nullable: true })
+  password: Nullable<string> = null;
+
   @Column({
     name: "sshMode",
     type: "varchar",
@@ -221,6 +215,7 @@ export class SavedConnection extends DbConnectionBase {
   @BeforeUpdate()
   maybeClearPasswords() {
     if (!this.rememberPassword) {
+      this.password = null;
     }
   }
 }

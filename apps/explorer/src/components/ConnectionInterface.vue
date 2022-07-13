@@ -45,29 +45,9 @@
               </div>
               <div v-if="config.connectionType">
 
-                <!-- INDIVIDUAL DB CONFIGS -->
-                <postgres-form v-if="config.connectionType === 'cockroachdb'"
-                               :config="config"
-                               :testing="testing"></postgres-form>
-                <mysql-form v-if="['mysql', 'mariadb'].includes(config.connectionType)"
-                            :config="config"
-                            :testing="testing"
-                            @save="save"
-                            @test="testConnection"
-                            @connect="submit"></mysql-form>
-                <postgres-form v-if="config.connectionType === 'postgresql'"
-                               :config="config"
-                               :testing="testing"></postgres-form>
-                <postgres-form v-if="config.connectionType === 'redshift'"
-                               :config="config"
-                               :testing="testing"></postgres-form>
-                <sqlite-form v-if="config.connectionType === 'sqlite'"
-                             :config="config"
-                             :testing="testing"></sqlite-form>
-                <sql-server-form v-if="config.connectionType === 'sqlserver'"
+                <zoo-keeper-form v-if="config.connectionType === 'zookeeper'"
                                  :config="config"
-                                 :testing="testing"></sql-server-form>
-                <other-database-notice v-if="config.connectionType === 'other'" />
+                                 :testing="testing"></zoo-keeper-form>
 
                 <!-- TEST AND CONNECT -->
                 <div v-if="config.connectionType !== 'other'"
@@ -112,150 +92,199 @@
     </div>
   </div>
 </template>
-<script>  
-import os from 'os'
-import {SavedConnection} from '../common/appdb/models/saved_connection'
+<script>
+import os from "os"
+import { SavedConnection } from "../common/appdb/models/saved_connection"
 import ConnectionSidebar from "./sidebar/ConnectionSidebar"
 import Sidebar from "./common/Sidebar"
-import platformInfo from '@/common/platform_info'
-import Split from 'split.js'
-import ImportButton from './connection/ImportButton'
-import ErrorAlert from './common/ErrorAlert.vue'
+import platformInfo from "@/common/platform_info"
+import Split from "split.js"
+import ImportButton from "./connection/ImportButton"
+import ErrorAlert from "./common/ErrorAlert.vue"
+import { findClient } from "@/lib/kafka/clients"
+import SaveConnectionForm from "./connection/SaveConnectionForm"
+import ZooKeeperForm from "./connection/ZooKeeperForm"
+import _ from "lodash"
+import rawLog from "electron-log"
+
+const log = rawLog.scope("ConnectionInterface")
+
 export default {
-  components: { ConnectionSidebar, Sidebar, ImportButton, ErrorAlert },
+  components: {
+    ConnectionSidebar,
+    Sidebar,
+    ImportButton,
+    ErrorAlert,
+    ZooKeeperForm,
+    SaveConnectionForm,
+  },
   data() {
     return {
       config: new SavedConnection(),
       errors: null,
+      connectionError: null,
       split: null,
       sidebarShown: true,
-      version: platformInfo.appVersion
+      testing: false,
+      version: platformInfo.appVersion,
     }
   },
-  computed: { 
+  computed: {
     connectionTypes() {
       return this.$config.defaults.connectionTypes
     },
     pageTitle() {
-      if(_.isNull(this.config) || _.isUndefined(this.config.id)) {
+      if (_.isNull(this.config) || _.isUndefined(this.config.id)) {
         return "New Connection"
       } else {
         return this.config.name
       }
     },
   },
+  watch: {
+    workspaceId() {
+      this.config = new SavedConnection()
+    },
+    config: {
+      deep: true,
+      handler() {
+        console.log("jjjjjjjjjjjjjj", this.config)
+        this.connectionError = null
+      },
+    },
+    "config.connectionType"(newConnectionType) {
+      console.log(findClient(newConnectionType))
+      if (!findClient(newConnectionType)?.supportsSocketPath) {
+        this.config.socketPathEnabled = false
+      }
+    },
+    connectionError() {
+      console.log("error watch", this.connectionError, this.dialect)
+      if (
+        this.connectionError &&
+        this.dialect == "sqlserver" &&
+        this.connectionError.message &&
+        this.connectionError.message.includes("self signed certificate")
+      ) {
+        this.errorHelp = `You might need to check 'Trust Server Certificate'`
+      } else {
+        this.errorHelp = null
+      }
+    },
+  },
   async mounted() {
     if (!this.$store.getters.workspace) {
-      await this.$store.commit('workspace', this.$store.state.localWorkspace)
+      await this.$store.commit("workspace", this.$store.state.localWorkspace)
     }
     // await this.$store.dispatch('loadUsedConfigs')
     // this.config.sshUsername = os.userInfo().username
     this.$nextTick(() => {
-      const components = [
-        this.$refs.sidebar.$refs.sidebar,
-        this.$refs.content
-      ]
+      const components = [this.$refs.sidebar.$refs.sidebar, this.$refs.content]
       this.split = Split(components, {
         elementStyle: (dimension, size) => ({
-            'flex-basis': `calc(${size}%)`,
+          "flex-basis": `calc(${size}%)`,
         }),
-        sizes: [300,500],
+        sizes: [300, 500],
         gutterize: 8,
         minSize: [300, 300],
         expandToMin: true,
       })
+      console.log("jjjjjjjjjjjjjj", this.config)
     })
   },
   beforeDestroy() {
-    if(this.split) {
+    if (this.split) {
       this.split.destroy()
     }
   },
   methods: {
     create() {
+      this.config = new SavedConnection()
+      console.log("jjjjjjjjjjjjjj", this.config)
+    },
+    edit(config) {
+      this.config = config
+      this.errors = null
+      this.connectionError = null
+    },
+    async remove(config) {
+      if (this.config === config) {
         this.config = new SavedConnection()
-      },
-      edit(config) {
-        this.config = config
+      }
+      await this.$store.dispatch("data/connections/remove", config)
+      this.$noty.success(`${config.name} deleted`)
+    },
+    async duplicate(config) {
+      // Duplicates ES 6 class of the connection, without any reference to the old one.
+      const duplicateConfig = await this.$store.dispatch(
+        "data/connections/clone",
+        config
+      )
+      duplicateConfig.name = "Copy of " + duplicateConfig.name
+
+      try {
+        const id = await this.$store.dispatch(
+          "data/connections/save",
+          duplicateConfig
+        )
+        this.$noty.success(`The connection was successfully duplicated!`)
+        this.config = this.connections.find((c) => c.id === id) || this.config
+      } catch (ex) {
+        this.$noty.error(`Could not duplicate Connection: ${ex.message}`)
+      }
+    },
+    async submit() {
+      this.connectionError = null
+      try {
+        await this.$store.dispatch("connect", this.config)
+      } catch (ex) {
+        this.connectionError = ex
+        this.$noty.error("Error establishing a connection")
+        log.error(ex)
+      }
+    },
+    async handleConnect(config) {
+      this.config = config
+      await this.submit()
+    },
+    async testConnection() {
+      try {
+        this.testing = true
+        this.connectionError = null
+        await this.$store.dispatch("test", this.config)
+        this.$noty.success("Connection looks good!")
+        return true
+      } catch (ex) {
+        this.connectionError = ex
+        this.$noty.error("Error establishing a connection")
+      } finally {
+        this.testing = false
+      }
+    },
+    clearForm() {},
+    async save() {
+      try {
         this.errors = null
         this.connectionError = null
-      },
-      async remove(config) {
-        if (this.config === config) {
-          this.config = new SavedConnection()
+        if (!this.config.name) {
+          throw new Error("Name is required")
         }
-        await this.$store.dispatch('data/connections/remove', config)
-        this.$noty.success(`${config.name} deleted`)
-      },
-      async duplicate(config) {
-        // Duplicates ES 6 class of the connection, without any reference to the old one.
-        const duplicateConfig = await this.$store.dispatch('data/connections/clone', config)
-        duplicateConfig.name = 'Copy of ' + duplicateConfig.name
-
-        try {
-          const id = await this.$store.dispatch('data/connections/save', duplicateConfig)
-          this.$noty.success(`The connection was successfully duplicated!`)
-          this.config = this.connections.find((c) => c.id === id) || this.config
-        } catch (ex) {
-          this.$noty.error(`Could not duplicate Connection: ${ex.message}`)
-        }
-
-      },
-      async submit() {
-        this.connectionError = null
-        try {
-          await this.$store.dispatch('connect', this.config)
-        } catch(ex) {
-          this.connectionError = ex
-          this.$noty.error("Error establishing a connection")
-          log.error(ex)
-        }
-      },
-      async handleConnect(config) {
-        this.config = config
-        await this.submit()
-      },
-      async testConnection(){
-
-        try {
-          this.testing = true
-          this.connectionError = null
-          await this.$store.dispatch('test', this.config)
-          this.$noty.success("Connection looks good!")
-          return true
-        } catch(ex) {
-          this.connectionError = ex
-          this.$noty.error("Error establishing a connection")
-        } finally {
-          this.testing = false
-        }
-      },
-      clearForm(){
-
-      },
-      async save() {
-        try {
-          this.errors = null
-          this.connectionError = null
-          if (!this.config.name) {
-            throw new Error("Name is required")
-          }
-          await this.$store.dispatch('data/connections/save', this.config)
-          this.$noty.success("Connection Saved")
-        } catch (ex) {
-          console.error(ex)
-          this.errors = [ex.message]
-          this.$noty.error("Could not save connection information")
-        }
-      },
-      handleErrorMessage(message){
-        if (message){
-          this.errors = [message]
-          this.$noty.error("Could not parse connection URL.")
-        }else{
-          this.errors = null
-        }
+        await this.$store.dispatch("data/connections/save", this.config)
+        this.$noty.success("Connection Saved")
+      } catch (ex) {
+        console.error(ex)
+        this.errors = [ex.message]
+        this.$noty.error("Could not save connection information")
       }
+    },
+    handleErrorMessage(message) {
+      if (message) {
+        this.errors = [message]
+        this.$noty.error("Could not parse connection URL.")
+      } else {
+        this.errors = null
+      }
+    },
   },
 }
 </script>

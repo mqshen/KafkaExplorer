@@ -1,9 +1,10 @@
 import { createConnection, Connection as TypeKafkaConnection } from "typeorm";
 import { SavedConnection } from "./models/saved_connection";
+import { UsedConnection } from "./models/used_connection";
 import { UserSetting } from "./models/user_setting";
 import { LoggerOptions } from "typeorm/logger/LoggerOptions";
 
-const models = [SavedConnection, UserSetting];
+const models = [SavedConnection, UserSetting, UsedConnection];
 
 export default class Connection {
   private connection?: TypeKafkaConnection;

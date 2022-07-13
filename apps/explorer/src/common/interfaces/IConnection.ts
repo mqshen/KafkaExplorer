@@ -31,11 +31,7 @@ export interface ISimpleConnection {
 
 export interface IConnection extends ISimpleConnection {
   name: Nullable<string>;
-
-  sshMode: SshMode;
   password: Nullable<string>;
-  sshPassword: Nullable<string>;
-  sshKeyfilePassword: Nullable<string>;
 }
 
 export interface ICloudSavedConnection extends IConnection {

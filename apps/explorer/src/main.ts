@@ -1,12 +1,19 @@
 import Vue from "vue";
-import App from "./App.vue";
+import VueNoty from "vuejs-noty";
+import VueHotkey from "v-hotkey";
+import VTooltip from "v-tooltip";
 import VModal from "vue-js-modal";
 import "xel/xel";
 // @ts-ignore
 import { TabulatorFull as Tabulator, EditModule } from "tabulator-tables";
 import PortalVue from "portal-vue";
 
+import App from "./App.vue";
+
 import "./assets/styles/app.scss";
+
+import TimeAgo from "javascript-time-ago";
+import en from "javascript-time-ago/locale/en";
 
 import store from "./store/index";
 import { AppEventMixin } from "./common/AppEvent";
@@ -14,6 +21,7 @@ import platformInfo from "./common/platform_info";
 import Connection from "./common/appdb/Connection";
 import config from "./config";
 import ConfigPlugin from "./plugins/ConfigPlugin";
+import KakfaExplorerPlugin from "./plugins/KafkaExplorerPlugin";
 
 import AppEventHandler from "./lib/events/AppEventHandler";
 import { ipcRenderer } from "electron";
@@ -48,6 +56,7 @@ import _ from "lodash";
     }
 
     log.info("starting logging");
+    TimeAgo.addLocale(en);
     // @ts-ignore
     Tabulator.defaultOptions.layout = "fitDataFill";
     // @ts-ignore
@@ -85,21 +94,21 @@ import _ from "lodash";
 
     Vue.config.productionTip = false;
     //     Vue.use(TypeOrmPlugin, { connection });
-    //     Vue.use(VueHotkey);
-    //     Vue.use(VTooltip);
+    Vue.use(VueHotkey);
+    Vue.use(VTooltip);
     Vue.use(VModal);
     //     Vue.use(VueClipboard);
     Vue.use(ConfigPlugin);
-    //     Vue.use(BeekeeperPlugin);
+    Vue.use(KakfaExplorerPlugin);
     //     Vue.use(VueElectronPlugin);
     Vue.use(PortalVue);
-    //     Vue.use(VueNoty, {
-    //       timeout: 2300,
-    //       progressBar: true,
-    //       layout: "bottomRight",
-    //       theme: "mint",
-    //       closeWith: ["button", "click"],
-    //     });
+    Vue.use(VueNoty, {
+      timeout: 2300,
+      progressBar: true,
+      layout: "bottomRight",
+      theme: "mint",
+      closeWith: ["button", "click"],
+    });
 
     const app = new Vue({
       render: (h) => h(App),
