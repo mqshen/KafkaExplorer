@@ -12,8 +12,6 @@
            id="tab-tables"
            :class="tabClasses('tables')"
            v-show="activeItem === 'tables'">
-        <database-dropdown @databaseSelected="databaseSelected"
-                           :connection="connection"></database-dropdown>
         <table-list></table-list>
       </div>
 
@@ -44,7 +42,6 @@ import GlobalSidebar from "./GlobalSidebar"
 import TableList from "./core/TableList"
 import HistoryList from "./core/HistoryList"
 import FavoriteList from "./core/FavoriteList"
-import DatabaseDropdown from "./core/DatabaseDropdown"
 
 import { mapState } from "vuex"
 
@@ -52,7 +49,6 @@ export default {
   props: ["sidebarShown"],
   components: {
     TableList,
-    DatabaseDropdown,
     HistoryList,
     GlobalSidebar,
     FavoriteList,

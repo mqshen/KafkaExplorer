@@ -11,7 +11,8 @@ export default async function (server, zk) {
   return {
     disconnect: () => disconnect(conn),
     listBrokers: () => listBrokers(conn),
-    listTopic: () => listTopic(conn),
+    listTopics: () => listTopics(conn),
+    listPartitions: (topic: string) => listPartitions(conn, topic),
   };
 }
 
@@ -20,11 +21,24 @@ export async function disconnect(conn) {
 }
 
 export function listBrokers(conn) {
-  conn.client.disconnect();
+  console.log("sjs", conn);
+  return ["sss"];
 }
 
-export function listTopic(conn) {
-  conn.client.disconnect();
+export async function listTopics(conn) {
+  const brokers = await conn.client.getChildren("/brokers/topics");
+  console.log(brokers);
+
+  return brokers.children;
+}
+
+export async function listPartitions(conn, topic) {
+  const partitions = await conn.client.getChildren(
+    "/brokers/topics/" + topic + "/partitions"
+  );
+  console.log(partitions);
+
+  return partitions.children;
 }
 
 function configZooKeeper(server, zk) {

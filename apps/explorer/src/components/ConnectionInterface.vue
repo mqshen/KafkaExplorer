@@ -148,7 +148,6 @@ export default {
     config: {
       deep: true,
       handler() {
-        console.log("jjjjjjjjjjjjjj", this.config)
         this.connectionError = null
       },
     },
@@ -189,7 +188,6 @@ export default {
         minSize: [300, 300],
         expandToMin: true,
       })
-      console.log("jjjjjjjjjjjjjj", this.config)
     })
   },
   beforeDestroy() {
@@ -200,7 +198,6 @@ export default {
   methods: {
     create() {
       this.config = new SavedConnection()
-      console.log("jjjjjjjjjjjjjj", this.config)
     },
     edit(config) {
       this.config = config

@@ -4,6 +4,7 @@ import Vuex from "vuex";
 import username from "username";
 
 import SettingStoreModule from "./modules/settings/SettingStoreModule";
+import { EntityFilter } from "./models";
 import { TabModule } from "./modules/TabModule";
 
 import { UsedConnection } from "../common/appdb/models/used_connection";
@@ -15,7 +16,9 @@ import { IKafkaConnectionPublicServer } from "../lib/kafka/server";
 import { KafkaConnection } from "../lib/kafka/client";
 
 import ConnectionProvider from "../lib/connection-provider";
-import { Routine, TableOrView } from "../lib/db/models";
+import { TableOrView } from "../lib/db/models";
+import { Topic } from "../lib/kafka/models";
+import { PinModule } from "./modules/PinModule";
 
 import RawLog from "electron-log";
 
@@ -36,7 +39,8 @@ export interface State {
   connection: Nullable<KafkaConnection>;
   database: Nullable<string>;
   tables: TableOrView[];
-  routines: Routine[];
+  topics: string[];
+  entityFilter: EntityFilter;
   tablesLoading: string;
   tablesInitialLoaded: boolean;
   username: Nullable<string>;
@@ -52,6 +56,7 @@ Vue.use(Vuex);
 const store = new Vuex.Store<State>({
   modules: {
     settings: SettingStoreModule,
+    pins: PinModule,
     tabs: TabModule,
   },
   state: {
@@ -61,7 +66,13 @@ const store = new Vuex.Store<State>({
     connection: null,
     database: null,
     tables: [],
-    routines: [],
+    topics: [],
+    entityFilter: {
+      filterQuery: undefined,
+      showTables: true,
+      showRoutines: true,
+      showViews: true,
+    },
     tablesLoading: "loading tables...",
     tablesInitialLoaded: false,
     username: null,
@@ -94,8 +105,7 @@ const store = new Vuex.Store<State>({
           {
             schema: g.schemas[0] || null,
             skipSchemaDisplay: g.schemas.length < 2,
-            tables: g.filteredTables,
-            routines: g.filteredRoutines,
+            topics: g.filteredTables,
           },
         ];
       }
@@ -117,6 +127,10 @@ const store = new Vuex.Store<State>({
         })
         .value();
     },
+
+    filteredTables(state) {
+      return state.topics;
+    },
     tablesHaveSchemas(_state, getters) {
       return getters.schemas.length > 1;
     },
@@ -125,6 +139,9 @@ const store = new Vuex.Store<State>({
         return _.uniq(state.tables.map((t) => t.schema));
       }
       return [];
+    },
+    connectionColor(state) {
+      return state.usedConfig ? state.usedConfig.labelColor : "default";
     },
   },
   mutations: {
@@ -154,7 +171,6 @@ const store = new Vuex.Store<State>({
     clearConnection(state) {
       state.database = null;
       state.tables = [];
-      state.routines = [];
     },
     updateConnection(state, { database }) {
       state.database = database;
@@ -163,26 +179,8 @@ const store = new Vuex.Store<State>({
       state.tables = [];
       state.tablesInitialLoaded = false;
     },
-    tables(state, tables: TableOrView[]) {
-      if (state.tables.length === 0) {
-        state.tables = tables;
-      } else {
-        // TODO: make this not O(n^2)
-        const result = tables.map((t) => {
-          const existingIdx = state.tables.findIndex((st) =>
-            tablesMatch(st, t)
-          );
-          if (existingIdx >= 0) {
-            const existing = state.tables[existingIdx];
-            Object.assign(existing, t);
-            return existing;
-          } else {
-            return t;
-          }
-        });
-        state.tables = result;
-      }
-
+    topics(state, topics: string[]) {
+      state.topics = topics;
       if (!state.tablesInitialLoaded) state.tablesInitialLoaded = true;
     },
 
@@ -199,9 +197,6 @@ const store = new Vuex.Store<State>({
       }
     },
 
-    routines(state, routines) {
-      state.routines = Object.freeze(routines);
-    },
     tablesLoading(state, value: string) {
       state.tablesLoading = value;
     },
@@ -238,6 +233,34 @@ const store = new Vuex.Store<State>({
         context.dispatch("recordUsedConfig", config);
       } else {
         throw "No username provided";
+      }
+    },
+
+    async updateTopics(context) {
+      if (context.state.connection) {
+        try {
+          console.log("  test for test ");
+          context.commit("tablesLoading", "Finding Topics");
+          console.log("tttttttttt", context.state.connection);
+          const topics = await context.state.connection!.listTopics();
+
+          let topicAndPartitions: Topic[] = [];
+          for (let i = 0; i < topics.length; i++) {
+            const topic = topics[i];
+            const partitions = await context.state.connection!.listPartitions(
+              topic
+            );
+            topicAndPartitions = topicAndPartitions.concat(
+              new Topic(topic, partitions)
+            );
+          }
+
+          context.commit("tablesLoading", `Loading ${topics.length} topics`);
+
+          context.commit("topics", topicAndPartitions);
+        } finally {
+          context.commit("tablesLoading", null);
+        }
       }
     },
 

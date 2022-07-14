@@ -29,7 +29,10 @@
   </div>
 </template>
 <script>
+import Split from "split.js"
 import Sidebar from "./common/Sidebar"
+import Statusbar from "./common/StatusBar"
+import CoreTabs from "./CoreTabs"
 import CoreSidebar from "./sidebar/CoreSidebar"
 import ConnectionButton from "./sidebar/core/ConnectionButton"
 import ExportManager from "./export/ExportManager"
@@ -39,6 +42,8 @@ export default {
   components: {
     CoreSidebar,
     Sidebar,
+    Statusbar,
+    CoreTabs,
     ConnectionButton,
     ExportManager,
     ProgressBar,
@@ -56,7 +61,29 @@ export default {
       initializing: true,
     }
   },
-
+  watch: {
+    initializing() {
+      if (this.initializing) return
+      this.$nextTick(() => {
+        this.split = Split(this.splitElements, {
+          elementStyle: (dimension, size) => ({
+            "flex-basis": `calc(${size}%)`,
+          }),
+          sizes: [25, 75],
+          minSize: 280,
+          expandToMin: true,
+          gutterSize: 5,
+        })
+      })
+    },
+  },
+  mounted() {
+    this.$store.dispatch("pins/loadPins")
+    this.registerHandlers(this.rootBindings)
+    this.$nextTick(() => {
+      this.initializing = false
+    })
+  },
   computed: {
     keymap() {
       const results = {}
@@ -67,8 +94,14 @@ export default {
       return [this.$refs.sidebar.$refs.sidebar, this.$refs.content]
     },
   },
-  mounted() {},
-  methods: {},
+  methods: {
+    databaseSelected(database) {
+      this.$emit("databaseSelected", database)
+    },
+    toggleSidebar() {
+      this.sidebarShown = !this.sidebarShown
+    },
+  },
 }
 </script>
 

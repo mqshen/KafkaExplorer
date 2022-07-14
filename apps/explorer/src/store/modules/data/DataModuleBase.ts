@@ -117,9 +117,13 @@ export function localActionsFor<T extends ApplicationEntity>(
     async load(context) {
       context.commit("error", null);
       await safely(context, async () => {
-        const items = await cls.find(loadOptions);
-        if (context.rootState.workspaceId === LocalWorkspace.id) {
-          context.commit("upsert", items);
+        try {
+          const items = await cls.find(loadOptions);
+          if (context.rootState.workspaceId === LocalWorkspace.id) {
+            context.commit("upsert", items);
+          }
+        } catch (e) {
+          console.log("test", cls, e);
         }
       });
     },
@@ -150,6 +154,7 @@ export function localActionsFor<T extends ApplicationEntity>(
     },
 
     async update(context, item: T) {
+      console.log(item);
       const existing = context.state.items.find((i) => i.id === item.id);
       if (!existing) throw new Error("Could not find this item");
       cls.merge(existing, item);

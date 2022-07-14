@@ -1,5 +1,6 @@
 import clients from "./clients";
 import createLogger from "../logger";
+import { listTopics, listPartitions } from "./clients/kafka";
 
 const logger = createLogger("kafka");
 
@@ -23,6 +24,8 @@ export interface IKafkaConnectionServerConfig {
 
 export interface ZooKeeperClient {
   disconnect: () => void;
+  listTopics: () => Promise<string[]>;
+  listPartitions: (topic: string) => Promise<string[]>;
 }
 
 export interface IZookeeperConnection {
@@ -106,4 +109,6 @@ export class KafkaConnection {
   ) {}
   connect = connect.bind(null, this.server, this.zk);
   disconnect = disconnect.bind(null, this.server, this.zk);
+  listTopics = listTopics.bind(null, this.server, this.zk);
+  listPartitions = listPartitions.bind(null, this.server, this.zk);
 }

@@ -3,6 +3,7 @@ import createLogger from "../lib/logger";
 import createSettings from "./create_settings";
 import saveConnections from "./saved_connections";
 import useConnections from "./used_connections";
+import useQuery from "./used_query";
 
 const logger = createLogger("migrations")();
 
@@ -12,7 +13,12 @@ const setupSQL = `
    run_at datetime NOT NULL DEFAULT (datetime('now'))
  )
 `;
-const realMigrations = [createSettings, saveConnections, useConnections];
+const realMigrations = [
+  createSettings,
+  saveConnections,
+  useConnections,
+  useQuery,
+];
 
 // fixtures require the models
 const fixtures = [];
